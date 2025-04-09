@@ -62,7 +62,10 @@ const checkTradingViewLoaded = () => {
 }
 
 const createLightweightChart = () => {
+  console.log('【K线排查】初始化轻量级图表')
+  
   if (!window.LightweightCharts) {
+    console.log('【K线排查】轻量级图表库状态:', typeof window.LightweightCharts)
     displayErrorMessage('轻量级图表库未加载')
     return false
   }
@@ -71,82 +74,182 @@ const createLightweightChart = () => {
     isLoading.value = true
     showError.value = false
     
-    const { LightweightCharts } = window
-    const chartOptions = {
-      layout: {
-        background: { color: '#151924' },
-        textColor: '#D9D9D9',
-      },
-      grid: {
-        vertLines: { color: '#1E2230' },
-        horzLines: { color: '#1E2230' },
-      },
-      crosshair: {
-        mode: LightweightCharts.CrosshairMode.Normal,
-        vertLine: {
-          width: 1,
-          color: '#4B5563',
-          style: LightweightCharts.LineStyle.Dashed,
+    // 检查并记录库的结构，帮助调试
+    console.log('【K线排查】LightweightCharts对象:', Object.keys(window.LightweightCharts))
+    
+    // 正确创建图表
+    const { createChart } = window.LightweightCharts
+    
+    if (!createChart) {
+      // 尝试不同的引用方式
+      if (typeof window.LightweightCharts === 'function') {
+        console.log('【K线排查】尝试直接使用LightweightCharts作为构造函数')
+        chart = new window.LightweightCharts(tvChartRef.value, {
+          layout: {
+            background: { color: '#151924' },
+            textColor: '#D9D9D9',
+          },
+          grid: {
+            vertLines: { color: '#1E2230' },
+            horzLines: { color: '#1E2230' },
+          },
+          timeScale: {
+            borderColor: '#1E2230',
+            timeVisible: true,
+            secondsVisible: false,
+          },
+          rightPriceScale: {
+            borderColor: '#1E2230',
+          },
+          handleScroll: true,
+          handleScale: true,
+        })
+      } else if (window.LightweightCharts.createChartEx) {
+        console.log('【K线排查】尝试使用createChartEx方法')
+        chart = window.LightweightCharts.createChartEx(tvChartRef.value, {
+          layout: {
+            background: { color: '#151924' },
+            textColor: '#D9D9D9',
+          },
+          grid: {
+            vertLines: { color: '#1E2230' },
+            horzLines: { color: '#1E2230' },
+          },
+          timeScale: {
+            borderColor: '#1E2230',
+            timeVisible: true,
+            secondsVisible: false,
+          },
+          rightPriceScale: {
+            borderColor: '#1E2230',
+          },
+          handleScroll: true,
+          handleScale: true,
+        })
+      } else {
+        console.error('【K线排查】找不到createChart方法')
+        throw new Error('图表库API不兼容')
+      }
+    } else {
+      // 标准方式创建图表
+      const chartOptions = {
+        layout: {
+          background: { color: '#151924' },
+          textColor: '#D9D9D9',
         },
-        horzLine: {
-          width: 1,
-          color: '#4B5563',
-          style: LightweightCharts.LineStyle.Dashed,
+        grid: {
+          vertLines: { color: '#1E2230' },
+          horzLines: { color: '#1E2230' },
         },
-      },
-      timeScale: {
-        borderColor: '#1E2230',
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      rightPriceScale: {
-        borderColor: '#1E2230',
-      },
-      handleScroll: true,
-      handleScale: true,
+        timeScale: {
+          borderColor: '#1E2230',
+          timeVisible: true,
+          secondsVisible: false,
+        },
+        rightPriceScale: {
+          borderColor: '#1E2230',
+        },
+        handleScroll: true,
+        handleScale: true,
+      }
+      
+      if (chart) {
+        chart.remove()
+        chart = null
+      }
+      
+      chart = createChart(tvChartRef.value, chartOptions)
     }
     
-    if (chart) {
-      chart.remove()
-      chart = null
+    // 检查图表对象方法
+    console.log('【K线排查】chart对象方法:', Object.keys(chart))
+    
+    // 尝试添加蜡烛图系列
+    try {
+      if (typeof chart.addCandlestickSeries === 'function') {
+        candleSeries = chart.addCandlestickSeries({
+          upColor: '#26A69A',
+          downColor: '#EF5350',
+          borderUpColor: '#26A69A',
+          borderDownColor: '#EF5350',
+          wickUpColor: '#26A69A',
+          wickDownColor: '#EF5350',
+        })
+      } else if (typeof chart.addSeries === 'function') {
+        // 尝试替代API
+        console.log('【K线排查】使用替代API: addSeries')
+        candleSeries = chart.addSeries('candlestick', {
+          upColor: '#26A69A',
+          downColor: '#EF5350',
+          borderUpColor: '#26A69A',
+          borderDownColor: '#EF5350',
+          wickUpColor: '#26A69A',
+          wickDownColor: '#EF5350',
+        })
+      } else {
+        // 最后尝试直接使用版本3的API
+        console.log('【K线排查】尝试加载v3版本的API')
+        // 尝试重新加载v3版本库
+        const script = document.createElement('script')
+        script.src = 'https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js'
+        script.onload = () => {
+          // 重新初始化
+          setTimeout(() => initChart(), 100)
+        }
+        document.head.appendChild(script)
+        throw new Error('正在尝试加载兼容版本')
+      }
+      
+      console.log('【K线排查】蜡烛图系列创建成功')
+      
+      // 添加成交量图
+      try {
+        if (typeof chart.addHistogramSeries === 'function') {
+          volumeSeries = chart.addHistogramSeries({
+            color: '#26A69A',
+            priceFormat: {
+              type: 'volume',
+            },
+            priceScaleId: 'volume',
+            scaleMargins: {
+              top: 0.8,
+              bottom: 0,
+            },
+          })
+          
+          if (typeof chart.priceScale === 'function') {
+            chart.priceScale('volume').applyOptions({
+              scaleMargins: {
+                top: 0.8, 
+                bottom: 0,
+              },
+            })
+          }
+        }
+        console.log('【K线排查】成交量图创建成功')
+      } catch (volumeError) {
+        console.error('【K线排查】成交量图创建失败:', volumeError)
+        // 继续执行，只是没有成交量图
+      }
+    } catch (seriesError) {
+      console.error('【K线排查】创建图表系列失败:', seriesError)
+      throw seriesError
     }
-    
-    chart = LightweightCharts.createChart(tvChartRef.value, chartOptions)
-    
-    candleSeries = chart.addCandlestickSeries({
-      upColor: '#26A69A',
-      downColor: '#EF5350',
-      borderUpColor: '#26A69A',
-      borderDownColor: '#EF5350',
-      wickUpColor: '#26A69A',
-      wickDownColor: '#EF5350',
-    })
-    
-    volumeSeries = chart.addHistogramSeries({
-      color: '#26A69A',
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: 'volume',
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0,
-      },
-    })
-    
-    chart.priceScale('volume').applyOptions({
-      scaleMargins: {
-        top: 0.8, 
-        bottom: 0,
-      },
-    })
     
     // 设置图表尺寸
     const handleResize = () => {
-      if (!chartContainer.value) return
-      const width = chartContainer.value.clientWidth
-      const height = chartContainer.value.clientHeight
-      chart.resize(width, height)
+      if (!chartContainer.value || !chart) return
+      try {
+        const width = chartContainer.value.clientWidth
+        const height = chartContainer.value.clientHeight
+        if (typeof chart.resize === 'function') {
+          chart.resize(width, height)
+        } else if (typeof chart.autoSizeActive === 'function') {
+          chart.autoSizeActive(true)
+        }
+      } catch (resizeError) {
+        console.error('【K线排查】调整图表大小失败:', resizeError)
+      }
     }
     
     // 初始化大小
@@ -160,13 +263,16 @@ const createLightweightChart = () => {
     resizeObserver = new ResizeObserver(debounce(handleResize, 200))
     resizeObserver.observe(chartContainer.value)
     
-    // 加载历史K线
-    loadKlineData()
+    // 只有当蜡烛图系列创建成功才加载数据
+    if (candleSeries) {
+      // 加载历史K线
+      loadKlineData()
+    }
     
     isLoading.value = false
     return true
   } catch (error) {
-    console.error('创建轻量级图表失败:', error)
+    console.error('【K线排查】创建轻量级图表失败:', error)
     displayErrorMessage('创建图表失败，请重试')
     return false
   }
@@ -195,12 +301,15 @@ const initChart = async () => {
     if (!checkTradingViewLoaded()) {
       // 尝试加载轻量级图表
       const script = document.createElement('script')
-      script.src = 'https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js'
+      // 使用特定的3.8.0版本，该版本API更稳定
+      script.src = 'https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js'
       script.onload = () => {
+        console.log('【K线排查】轻量级图表库加载成功')
         isLightweightMode = true
         createLightweightChart()
       }
       script.onerror = () => {
+        console.error('【K线排查】轻量级图表库加载失败')
         displayErrorMessage('图表库加载失败')
       }
       document.head.appendChild(script)
@@ -218,8 +327,8 @@ const initChart = async () => {
     startKlinePolling()
     
   } catch (err) {
-    console.error('初始化图表失败:', err)
-    displayErrorMessage()
+    console.error('【K线排查】初始化图表失败:', err)
+    displayErrorMessage('初始化图表失败')
   }
 }
 
@@ -288,7 +397,7 @@ const initTradingViewWidget = () => {
             onHistoryCallback([], { noData: true })
           }
         } catch (error) {
-          console.error('获取K线数据失败:', error)
+          console.error('【K线排查】获取K线数据失败:', error)
           onHistoryCallback([], { noData: true })
         }
       },
@@ -311,12 +420,25 @@ const initTradingViewWidget = () => {
 }
 
 const loadKlineData = async () => {
-  if (!props.symbol || !candleSeries) return
+  if (!props.symbol || !candleSeries) {
+    console.log('【K线排查】无法加载K线数据，缺少必要条件', {
+      hasSymbol: !!props.symbol,
+      hasCandleSeries: !!candleSeries
+    })
+    return
+  }
   
   try {
     const interval = getTimeFrameValue()
     const endTime = Date.now()
     const startTime = endTime - 30 * 24 * 60 * 60 * 1000 // 30天数据
+    
+    console.log('【K线排查】开始加载K线数据', {
+      symbol: props.symbol,
+      interval,
+      startTime,
+      endTime
+    })
     
     const klines = await fetchKlineHistory({
       symbol: props.symbol,
@@ -324,6 +446,11 @@ const loadKlineData = async () => {
       from: startTime,
       to: endTime,
       limit: 1000
+    })
+    
+    console.log('【K线排查】K线数据加载结果', {
+      success: !!klines,
+      count: klines?.length || 0
     })
     
     if (klines && klines.length > 0) {
@@ -336,14 +463,26 @@ const loadKlineData = async () => {
         volume: parseFloat(kline[5])
       }))
       
-      const volumeData = klines.map(kline => ({
-        time: kline[0] / 1000,
-        value: parseFloat(kline[5]),
-        color: parseFloat(kline[4]) >= parseFloat(kline[1]) ? '#26A69A' : '#EF5350'
-      }))
+      console.log('【K线排查】设置K线数据', { count: candleData.length })
       
-      candleSeries.setData(candleData)
-      volumeSeries.setData(volumeData)
+      try {
+        if (typeof candleSeries.setData === 'function') {
+          candleSeries.setData(candleData)
+        }
+        
+        if (volumeSeries && typeof volumeSeries.setData === 'function') {
+          const volumeData = klines.map(kline => ({
+            time: kline[0] / 1000,
+            value: parseFloat(kline[5]),
+            color: parseFloat(kline[4]) >= parseFloat(kline[1]) ? '#26A69A' : '#EF5350'
+          }))
+          volumeSeries.setData(volumeData)
+        }
+        
+        console.log('【K线排查】K线数据设置成功')
+      } catch (dataError) {
+        console.error('【K线排查】设置K线数据失败', dataError)
+      }
       
       // 记录最后更新时间
       if (candleData.length > 0) {
@@ -351,12 +490,15 @@ const loadKlineData = async () => {
       }
     }
   } catch (error) {
-    console.error('加载K线数据失败:', error)
+    console.error('【K线排查】加载K线数据失败:', error)
   }
 }
 
 const updateKlineData = async () => {
-  if (!props.symbol || !candleSeries || !isLightweightMode) return
+  if (!props.symbol || !candleSeries || !isLightweightMode) {
+    console.log('【K线排查】无法更新K线数据，缺少必要条件')
+    return
+  }
   
   try {
     const interval = getTimeFrameValue()
@@ -372,6 +514,8 @@ const updateKlineData = async () => {
     })
     
     if (klines && klines.length > 0) {
+      console.log('【K线排查】更新K线数据', { count: klines.length })
+      
       for (const kline of klines) {
         const time = kline[0] / 1000
         const open = parseFloat(kline[1])
@@ -380,19 +524,27 @@ const updateKlineData = async () => {
         const close = parseFloat(kline[4])
         const volume = parseFloat(kline[5])
         
-        candleSeries.update({
-          time: time,
-          open: open,
-          high: high,
-          low: low,
-          close: close
-        })
-        
-        volumeSeries.update({
-          time: time,
-          value: volume,
-          color: close >= open ? '#26A69A' : '#EF5350'
-        })
+        try {
+          if (typeof candleSeries.update === 'function') {
+            candleSeries.update({
+              time: time,
+              open: open,
+              high: high,
+              low: low,
+              close: close
+            })
+          }
+          
+          if (volumeSeries && typeof volumeSeries.update === 'function') {
+            volumeSeries.update({
+              time: time,
+              value: volume,
+              color: close >= open ? '#26A69A' : '#EF5350'
+            })
+          }
+        } catch (updateError) {
+          console.error('【K线排查】更新单条K线数据失败', updateError)
+        }
       }
       
       // 更新最后更新时间
@@ -401,17 +553,25 @@ const updateKlineData = async () => {
     }
     
     // 更新当前价格
-    if (tradeStore.klineTicker) {
-      const currentPrice = parseFloat(tradeStore.klineTicker.close)
-      candleSeries.priceScale().applyOptions({
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.2,
-        },
-      })
+    if (tradeStore.klineTicker && candleSeries) {
+      try {
+        const currentPrice = parseFloat(tradeStore.klineTicker.close)
+        if (typeof candleSeries.priceScale === 'function' && 
+            candleSeries.priceScale() && 
+            typeof candleSeries.priceScale().applyOptions === 'function') {
+          candleSeries.priceScale().applyOptions({
+            scaleMargins: {
+              top: 0.1,
+              bottom: 0.2,
+            },
+          })
+        }
+      } catch (priceScaleError) {
+        console.error('【K线排查】更新价格刻度失败', priceScaleError)
+      }
     }
   } catch (error) {
-    console.error('更新K线数据失败:', error)
+    console.error('【K线排查】更新K线数据失败:', error)
   }
 }
 
@@ -472,12 +632,20 @@ onBeforeUnmount(() => {
   }
   
   if (chart) {
-    chart.remove()
+    try {
+      chart.remove()
+    } catch (e) {
+      console.error('【K线排查】销毁图表失败', e)
+    }
     chart = null
   }
   
   if (tvWidget) {
-    tvWidget.remove()
+    try {
+      tvWidget.remove()
+    } catch (e) {
+      console.error('【K线排查】销毁TradingView失败', e)
+    }
     tvWidget = null
   }
 })
