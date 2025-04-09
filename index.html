@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <meta name="description" content="<%= htmlWebpackPlugin.options.description %>" />
+    <meta name="keywords" content="<%= htmlWebpackPlugin.options.keywords %>" />
+    <title><%= htmlWebpackPlugin.options.title %></title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-touch-fullscreen" content="yes" />
+    <meta name="format-detection" content="telephone=no, email=no" />
+    <meta name="referrer" content="never" />
+    <meta name="renderer" content="webkit" />
+    <meta name="wap-font-scale" content="no" />
+    <meta name="screen-orientation" content="portrait" />
+    <meta name="theme-color" content="#1947E9" />
+    <meta name="x5-fullscreen" content="true" />
+    <meta name="x5-orientation" content="portrait" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0,viewport-fit=cover" />
+
+    <!-- 避免资源加载阻断 -->
+    <link rel="dns-prefetch" href="/" />
+    <link rel="preconnect" href="/" />
+
+    <script>
+      window.isSupportWebpFormat = document.createElement('canvas').toDataURL('image/webp').indexOf('data:image/webp') === 0;
+      document.documentElement.style.fontSize = (document.documentElement.clientWidth / 10) + 'px';
+      window.addEventListener('resize', function () {
+        document.documentElement.style.fontSize = (document.documentElement.clientWidth / 10) + 'px';
+      });
+
+      // 加入无障碍支持
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js');
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
